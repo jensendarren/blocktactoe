@@ -74,7 +74,7 @@ contract TicTacToe {
     }
 
     function withdrawWin() public {
-      uint balanceToTransfer;
+        uint balanceToTransfer;
         if(msg.sender == player1) {
             require(balanceToWithdrawPlayer1 > 0);
             balanceToTransfer = balanceToWithdrawPlayer1;
