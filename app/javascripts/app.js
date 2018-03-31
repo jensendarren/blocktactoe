@@ -4,25 +4,31 @@ import "../stylesheets/app.css";
 // Import libraries we need.
 import { default as Web3} from 'web3';
 import { default as contract } from 'truffle-contract'
+import $ from "jquery";
 
 // Import our contract artifacts and turn them into usable abstractions.
-import metacoin_artifacts from '../../build/contracts/MetaCoin.json'
+import tictactoe_artifacts from '../../build/contracts/TicTacToe.json'
 
 // MetaCoin is our usable abstraction, which we'll use through the code below.
-var MetaCoin = contract(metacoin_artifacts);
+var TicTacToe = contract(tictactoe_artifacts);
 
 // The following code is simple to show off interacting with your contracts.
 // As your needs grow you will likely need to change its form and structure.
 // For application bootstrapping, check out window.addEventListener below.
 var accounts;
 var account;
+var ticTacToeInstance;
+var nextPlayerEvent;
+var gameOverWithWinEvent;
+var gameOverWithDrawEvent;
+var arrEventsFired;
 
 window.App = {
   start: function() {
     var self = this;
 
     // Bootstrap the MetaCoin abstraction for Use.
-    MetaCoin.setProvider(web3.currentProvider);
+    TicTacToe.setProvider(web3.currentProvider);
 
     // Get the initial account balance so it can be displayed.
     web3.eth.getAccounts(function(err, accs) {
@@ -38,50 +44,156 @@ window.App = {
 
       accounts = accs;
       account = accounts[0];
+      arrEventsFired = [];
 
-      self.refreshBalance();
     });
   },
-
-  setStatus: function(message) {
-    var status = document.getElementById("status");
-    status.innerHTML = message;
+  useAccountOne: function() {
+    account = accounts[1];
   },
+  createNewGame: function() {
+    console.log("Create New Game called!");
+    // TicTacToe.new({from:account, value:web3.toWei(0.1,"ether"), gas:3000000}).then(instance => {
+    //   ticTacToeInstance = instance;
 
-  refreshBalance: function() {
-    var self = this;
+    //   console.log(instance);
+    //   $(".in-game").show();
+    //   $(".waiting-for-join").hide();
+    //   $(".game-start").hide();
+    //   $("#game-address").text(instance.address);
+    //   $("#waiting").show();
 
-    var meta;
-    MetaCoin.deployed().then(function(instance) {
-      meta = instance;
-      return meta.getBalance.call(account, {from: account});
-    }).then(function(value) {
-      var balance_element = document.getElementById("balance");
-      balance_element.innerHTML = value.valueOf();
-    }).catch(function(e) {
-      console.log(e);
-      self.setStatus("Error getting balance; see log.");
-    });
+    //   var playerJoinedEvent = ticTacToeInstance.PlayerJoined();
+
+    //   playerJoinedEvent.watch(function(error, eventObj) {
+    //     if(!error) {
+    //       console.log(eventObj);
+    //     } else {
+    //       console.error(error);
+    //     }
+    //     $(".waiting-for-join").show();
+    //     $("#opponent-address").text(eventObj.args.player);
+    //     $("#your-turn").hide();
+    //     playerJoinedEvent.stopWatching();
+
+    //   });
+    //   App.listenToEvents();
+    //   console.log(instance);
+    // }).catch(error => {
+    //   console.error(error);
+    // })
   },
+  joinGame: function() {
+    var gameAddress = prompt("Address of the Game");
+    if(gameAddress != null) {
+      TicTacToe.at(gameAddress).then(instance => {
+        ticTacToeInstance = instance;
 
-  sendCoin: function() {
-    var self = this;
+        App.listenToEvents();
 
-    var amount = parseInt(document.getElementById("amount").value);
-    var receiver = document.getElementById("receiver").value;
+        return ticTacToeInstance.joinGame({from:account, value:web3.toWei(0.1, "ether"), gas:3000000});
+      }).then(txResult => {
+        $(".in-game").show();
+        $(".game-start").hide();
+        $("#game-address").text(ticTacToeInstance.address);
+        $("#your-turn").hide();
+        ticTacToeInstance.player1.call().then(player1Address => {
+          $("#opponent-address").text(player1Address);
+        })
+        console.log(txResult);
+      })
+    }
+  },
+  listenToEvents: function() {
+    nextPlayerEvent = ticTacToeInstance.NextPlayer();
+    nextPlayerEvent.watch(App.nextPlayer);
 
-    this.setStatus("Initiating transaction... (please wait)");
+    gameOverWithWinEvent = ticTacToeInstance.GameOverWithWin();
+    gameOverWithWinEvent.watch(App.gameOver);
 
-    var meta;
-    MetaCoin.deployed().then(function(instance) {
-      meta = instance;
-      return meta.sendCoin(receiver, amount, {from: account});
-    }).then(function() {
-      self.setStatus("Transaction complete!");
-      self.refreshBalance();
-    }).catch(function(e) {
-      console.log(e);
-      self.setStatus("Error sending coin; see log.");
+    gameOverWithDrawEvent = ticTacToeInstance.GameOverWithDraw();
+    gameOverWithDrawEvent.watch(App.gameOver);
+  },
+  nextPlayer: function(error, eventObj) {
+    if(arrEventsFired.indexOf(eventObj.blockNumber) === -1) {
+      arrEventsFired.push(eventObj.blockNumber);
+      App.printBoard();
+      console.log(eventObj);
+
+      if(eventObj.args.player == account) {
+        //our turn
+        /**
+        Set the On-Click Handler
+        **/
+        for(var i = 0; i < 3; i++) {
+          for(var j = 0; j < 3; j++) {
+            if($("#board")[0].children[0].children[i].children[j].innerHTML == "") {
+              $($("#board")[0].children[0].children[i].children[j]).off('click').click({x: i, y:j}, App.setStone);
+            }
+          }
+        }
+        $("#your-turn").show();
+        $("#waiting").hide();
+      } else {
+        //opponents turn
+
+        $("#your-turn").hide();
+        $("#waiting").show();
+      }
+
+    }
+  },
+  gameOver: function(err, eventObj) {
+    console.log("Game Over", eventObj);
+    if(eventObj.event == "GameOverWithWin") {
+      if(eventObj.args.winner == account) {
+        alert("Congratulations, You Won!");
+      } else {
+        alert("Woops, you lost! Try again...");
+      }
+    } else {
+      alert("That's a draw, oh my... next time you do beat'em!");
+    }
+
+
+    nextPlayerEvent.stopWatching();
+    gameOverWithWinEvent.stopWatching();
+    gameOverWithDrawEvent.stopWatching();
+
+    for(var i = 0; i < 3; i++) {
+      for(var j = 0; j < 3; j++) {
+            $("#board")[0].children[0].children[i].children[j].innerHTML = "";
+      }
+    }
+
+      $(".in-game").hide();
+      $(".game-start").show();
+  },
+  setStone: function(event) {
+    console.log(event);
+
+    for(var i = 0; i < 3; i++) {
+      for(var j = 0; j < 3; j++) {
+        $($("#board")[0].children[0].children[i].children[j]).prop('onclick',null).off('click');
+      }
+    }
+
+    ticTacToeInstance.setStone(event.data.x, event.data.y, {from: account}).then(txResult => {
+      console.log(txResult);
+      App.printBoard();
+    })
+  },
+  printBoard: function() {
+    ticTacToeInstance.getBoard.call().then(board => {
+      for(var i=0; i < board.length; i++) {
+        for(var j=0; j < board[i].length; j++) {
+          if(board[i][j] == account) {
+            $("#board")[0].children[0].children[i].children[j].innerHTML = "X";
+          } else if(board[i][j] != 0) {
+              $("#board")[0].children[0].children[i].children[j].innerHTML = "O";
+          }
+        }
+      }
     });
   }
 };
