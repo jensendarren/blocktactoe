@@ -52,36 +52,33 @@ window.App = {
     account = accounts[1];
   },
   createNewGame: function() {
-    console.log("Create New Game called!");
-    // TicTacToe.new({from:account, value:web3.toWei(0.1,"ether"), gas:3000000}).then(instance => {
-    //   ticTacToeInstance = instance;
+    TicTacToe.new({from:account, value:web3.toWei(0.1,"ether"), gas:3000000}).then(instance => {
+      ticTacToeInstance = instance;
 
-    //   console.log(instance);
-    //   $(".in-game").show();
-    //   $(".waiting-for-join").hide();
-    //   $(".game-start").hide();
-    //   $("#game-address").text(instance.address);
-    //   $("#waiting").show();
+      $(".in-game").show();
+      $(".waiting-for-join").hide();
+      $(".game-start").hide();
+      $("#game-address").text(instance.address);
+      $("#waiting").show();
 
-    //   var playerJoinedEvent = ticTacToeInstance.PlayerJoined();
+      var playerJoinedEvent = ticTacToeInstance.PlayerJoined();
 
-    //   playerJoinedEvent.watch(function(error, eventObj) {
-    //     if(!error) {
-    //       console.log(eventObj);
-    //     } else {
-    //       console.error(error);
-    //     }
-    //     $(".waiting-for-join").show();
-    //     $("#opponent-address").text(eventObj.args.player);
-    //     $("#your-turn").hide();
-    //     playerJoinedEvent.stopWatching();
+      playerJoinedEvent.watch(function(error, eventObj) {
+        if(!error) {
+          console.log(eventObj);
+        } else {
+          console.error(error);
+        }
+        $(".waiting-for-join").show();
+        $("#opponent-address").text(eventObj.args.player);
+        $("#your-turn").hide();
+        playerJoinedEvent.stopWatching();
 
-    //   });
-    //   App.listenToEvents();
-    //   console.log(instance);
-    // }).catch(error => {
-    //   console.error(error);
-    // })
+      });
+      App.listenToEvents();
+    }).catch(error => {
+      console.error(error);
+    })
   },
   joinGame: function() {
     var gameAddress = prompt("Address of the Game");
@@ -100,7 +97,7 @@ window.App = {
         ticTacToeInstance.player1.call().then(player1Address => {
           $("#opponent-address").text(player1Address);
         })
-        console.log(txResult);
+        // console.log(txResult);
       })
     }
   },
